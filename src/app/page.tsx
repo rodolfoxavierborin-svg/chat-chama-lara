@@ -85,7 +85,7 @@ const ChatPage = () => {
     const fetchLeads = async () => {
       setLoadingLeads(true);
       const { data, error } = await supabase
-        .from('leads')
+        .from('lara_leads')
         .select('*');
 
       if (error) {
@@ -106,10 +106,10 @@ const ChatPage = () => {
 
     // Escuta alterações na tabela de leads
     const leadsChannel = supabase
-      .channel('leads-global-channel')
+      .channel('lara-leads-global-channel')
       .on(
         'postgres_changes',
-        { event: '*', schema: 'public', table: 'leads' },
+        { event: '*', schema: 'public', table: 'lara_leads' },
         (payload: any) => {
           const newLead = payload.new as Lead;
           if (!newLead || !newLead.id) return;
@@ -129,10 +129,10 @@ const ChatPage = () => {
 
     // Escuta novas mensagens para atualizar a data de interação do lead na sidebar
     const globalMessagesChannel = supabase
-      .channel('global-messages-sidebar-channel')
+      .channel('lara-global-messages-sidebar-channel')
       .on(
         'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'messages' },
+        { event: 'INSERT', schema: 'public', table: 'lara_messages' },
         (payload: any) => {
           const newMsg = payload.new;
           if (!newMsg || !newMsg.lead_id) return;
@@ -165,7 +165,7 @@ const ChatPage = () => {
     const fetchMessages = async () => {
       setLoadingMessages(true);
       const { data, error } = await supabase
-        .from('messages')
+        .from('lara_messages')
         .select('*')
         .eq('lead_id', selectedLead.id)
         .order('created_at', { ascending: true });
@@ -181,10 +181,10 @@ const ChatPage = () => {
     fetchMessages();
 
     const messagesChannel = supabase
-      .channel('chat_messages_realtime_' + selectedLead.id)
+      .channel('lara_chat_messages_realtime_' + selectedLead.id)
       .on(
         'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'messages' },
+        { event: 'INSERT', schema: 'public', table: 'lara_messages' },
         (payload: any) => {
           const newMsg = payload.new as Message;
           if (newMsg && newMsg.lead_id === selectedLead.id) {
@@ -222,7 +222,7 @@ const ChatPage = () => {
     setLeads((prev) => prev.map((l) => (l.id === selectedLead.id ? updatedLead : l)));
 
     const { error } = await supabase
-      .from('leads')
+      .from('lara_leads')
       .update({ is_paused: newStatus })
       .eq('id', selectedLead.id);
 
@@ -256,11 +256,11 @@ const ChatPage = () => {
         const leadPausado = { ...selectedLead, is_paused: true };
         setSelectedLead(leadPausado);
         setLeads((prev) => prev.map((l) => (l.id === selectedLead.id ? leadPausado : l)));
-        await supabase.from('leads').update({ is_paused: true }).eq('id', selectedLead.id);
+        await supabase.from('lara_leads').update({ is_paused: true }).eq('id', selectedLead.id);
       }
 
       const { data: insertedMessage, error: dbError } = await supabase
-        .from('messages')
+        .from('lara_messages')
         .insert({
           lead_id: selectedLead.id,
           type: 'human_agent',
@@ -286,7 +286,7 @@ const ChatPage = () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           lead_id: selectedLead.id,
-          phone_number: selectedLead.phone_number,
+          phone_number: selectedLead.phone_number || selectedLead.phone,
           content: messageText,
           message_id: insertedMessage?.id || tempId,
         }),
@@ -408,7 +408,7 @@ const ChatPage = () => {
 
                     <div>
                       <h2 className="text-xs md:text-sm font-bold text-slate-800">{selectedLead.name || 'Sem Nome'}</h2>
-                      <span className="text-[11px] md:text-xs text-slate-500">{selectedLead.phone_number}</span>
+                      <span className="text-[11px] md:text-xs text-slate-500">{selectedLead.phone_number || (selectedLead as any).phone}</span>
                     </div>
                   </div>
 
